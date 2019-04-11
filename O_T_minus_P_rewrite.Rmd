@@ -1,0 +1,105 @@
+---
+title: "OT minus P rewrite"
+output: html_notebook
+---
+---
+title: "O_T_minus_P_I_take2"
+output: html_notebook
+---
+
+*Kate Dixon, 2019*
+
+Script to subtract parental interaction/interference bouts (P) from infant on-task bouts (O_T) if they occur at the same time or overlap. Writes new duration times per O_T bout (minus P or part of P bout if appropriate) to new csv file. 
+
+*CHANGE FILE NUMBER IN TWO CHUNKS*
+
+## Clear environment
+```{r}
+remove(list = ls())
+```
+
+## Set working directory
+```{r}
+setwd("C:/Users/Kate/Desktop")
+```
+
+## Load packages
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(readxl)
+```
+
+## Load data- *CHANGE NAME OF FILE HERE*
+```{r load-data}
+df <- read.csv("228903.csv", header=TRUE)
+df <- as.data.frame(df)
+```
+
+## Creating separate dataframes for on task times (allO_T) and for parent interaction times (all_P). Also initializing empty df for output of loop in next chunk.
+```{r}
+new_O_T_durations <- data.frame(matrix(vector(), (dim(df)[1]), 1))
+
+O_Ton <- select(df,O_T.onset)
+O_Toff <- select(df, O_T.offset)
+allO_T <- cbind(O_Toff, O_Ton)
+allO_T[is.na(allO_T)] <- 0
+
+P_on <- select(df, P.onset)
+P_off <- select(df, P.offset)
+all_P <- cbind(P_off, P_on)
+all_P <- all_P[complete.cases(all_P), ]
+```
+
+## Loop to determine if PI bouts (or part of the bouts) need to be subtracted from the on-task bouts. Puts new on-task durations in new df (new_O_T_durations).
+*vectorize later*
+```{r}
+for (i in 1:dim(allO_T)[1]){
+      for(j in 1:dim(all_P)[1]){
+            if ((all_P$P.onset[j] > allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] > allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #1
+                new_O_T_durations[i,j] = ((allO_T$O_T.offset[i] - allO_T$O_T.onset[i]) - (all_P$P.offset[j] - all_P$P.onset[j]))
+            }
+            else if ((all_P$P.onset[j] < allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] > allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #2
+                  new_O_T_durations[i,j] = allO_T$O_T.offset[i] - all_P$P.offset[j]
+            }
+            else if ((all_P$P.onset[j] < allO_T$O_T.onset[i]) & (all_P$P.offset[j] > allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] > allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #4
+                  new_O_T_durations[i,j] = 0
+            }
+            else if ((all_P$P.onset[j] > allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] < allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] < allO_T$O_T.offset[i])){ #5
+                  new_O_T_durations[i,j] = (allO_T$O_T.offset[i] - allO_T$O_T.onset[i]) - (all_P$P.offset[j] - all_P$P.onset[j]) - (all_P$P.offset[j+1] - all_P$P.onset[j+1])
+            }
+            else if ((all_P$P.onset[j] > allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] < allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #6
+                  new_O_T_durations[i,j] = (allO_T$O_T.offset[i] - allO_T$O_T.onset[i]) - (all_P$P.offset[j] - all_P$P.onset[j]) - (allO_T$O_T.offset[i] - all_P$P.onset[j+1])
+            }
+            else if ((all_P$P.onset[j] < allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] < allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] < allO_T$O_T.offset[i])){ #7
+                  new_O_T_durations[i,j] = (all_P$P.onset[j+1] - all_P$P.offset[j]) + (allO_T$O_T.offset[i] - all_P$P.offset[j+1])
+            }
+            else if ((all_P$P.onset[j] < allO_T$O_T.onset[i]) & (all_P$P.offset[j] < allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] < allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #8
+                  new_O_T_durations[i,j] = all_P$P.onset[j+1] - all_P$P.offset[j]
+            }
+            else if ((all_P$P.onset[j] >= allO_T$O_T.onset[i]) & (all_P$P.offset[j] > allO_T$O_T.offset[i]) & (all_P$P.offset[j] > allO_T$O_T.onset[i]) & (all_P$P.onset[j] < allO_T$O_T.offset[i]) & (all_P$P.onset[j+1] > allO_T$O_T.offset[i]) & (all_P$P.offset[j+1] > allO_T$O_T.offset[i])){ #9
+                  new_O_T_durations[i,j] = all_P$P.onset[j] - allO_T$O_T.onset[i]
+            }
+            else new_O_T_durations[i,j] = allO_T$O_T.offset[i] - allO_T$O_T.onset[i] #11
+      }
+}
+
+```
+
+## Getting one value for each O_T bout duration
+```{r}
+new_O_T_durations2 <- apply(new_O_T_durations, 1, FUN=min)
+```
+
+## Adding on task bout number to new duration df
+```{r}
+O_Tnum <- select(df, O_T.code01)
+new_O_T_durations2 <- cbind(new_O_T_durations2, O_Tnum)
+```
+
+## Write new_O_T_durations to CSV file *CHANGE NAME OF FILE HERE*
+```{r}
+write.csv(new_O_T_durations2, file = "228903 newOTdurations.csv",row.names=FALSE)
+```
+
