@@ -1,0 +1,68 @@
+---
+title: "OT_P_together"
+output: html_notebook
+---
+
+*Kate Dixon - 2019*
+
+
+## Set working directory
+```{r}
+setwd("C:/Users/Kate/Desktop")
+```
+
+## Load packages
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(readxl)
+library(tidyr)
+
+```
+
+## Load data- *CHANGE NAME OF FILE HERE*
+```{r load-data}
+df <- read.csv("234580.csv", header=TRUE)
+df <- as.data.frame(df)
+```
+
+## All O_T onset and offset times in one column ("Time") and trial number and type in 2nd column ("Trialnum") in order by column #1 (final is df allO_T2)
+```{r}
+O_Ton <- select(df,O_T.onset,O_T.code01)
+O_Toff <- select(df, O_T.offset,O_T.code01)
+names(O_Ton) <- c("Time","Trialnum")
+names(O_Toff) <- c("Time","Trialnum")
+
+allO_T <- rbind(O_Ton, O_Toff)
+
+allO_T2 <- allO_T[order(allO_T$Time),]
+```
+
+## All P onset and offset times in one column ("Time") and trial number and type in 2nd column ("Trialnum") in order by column #1 (final is df allP2)
+```{r}
+Pon <- select(df,P.onset,P.code01)
+Poff <- select(df, P.offset,P.code01)
+
+Pon <- Pon[complete.cases(Pon), ]
+Poff <- Poff[complete.cases(Poff), ]
+
+names(Pon) <- c("Time","Trialnum")
+names(Poff) <- c("Time","Trialnum")
+
+allP <- rbind(Pon, Poff)
+
+allP2 <- allP[order(allP$Time),]
+```
+
+## All OT and P onset/offset times in one column (Time) and all trial numbers and types in 2nd column ("Trialnum") in order by column #1 (final is OTandP)
+```{r}
+OTandP <- rbind(allO_T2, allP2)
+OTandP <- OTandP[order(OTandP$Time),]
+```
+
+```{r}
+write.csv(OTandP, file = "234580 OTandP.csv",row.names=FALSE)
+```
+
+
