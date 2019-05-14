@@ -1,0 +1,146 @@
+---
+title: "(O_T)-(P_I), O_T_revamp"
+output: html_notebook
+---
+
+## Clear environment
+```{r}
+remove(list = ls())
+```
+
+## Set working directory
+```{r}
+setwd("C:/Users/Kate/Desktop/OT minus P script")
+```
+
+## Load packages
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(readxl)
+```
+
+## Load data- *CHANGE NAME OF FILE HERE*
+```{r load-data}
+df <- read.csv("230433 PROBLEM copy.csv", header=TRUE)
+df <- as.data.frame(df)
+df[is.na(df)] <- 0
+```
+
+## Data reduction - Getting on task/parent interaction times and changing them into seconds and rounding to 2 decimal places.
+```{r}
+O_Ton <- select(df,O_T.onset)
+O_Ton <- O_Ton[as.logical(rowSums(O_Ton != 0)), ]
+
+O_Toff <- select(df, O_T.offset)
+O_Toff <- O_Toff[as.logical(rowSums(O_Toff != 0)), ]
+
+
+O_Ton <- (O_Ton/1000)
+O_Ton <- format(round(O_Ton, 2), nsmall = 2)
+O_Ton <- as.numeric(O_Ton)
+
+O_Toff <- (O_Toff/1000)
+O_Toff <- format(round(O_Toff, 2), nsmall = 2)
+O_Toff <- as.numeric(O_Toff)
+
+allO_T <- cbind(O_Toff, O_Ton)
+allO_T[is.na(allO_T)] <- 0
+allO_T <- allO_T[as.logical(rowSums(allO_T != 0)), ]
+
+P_on <- select(df, P.onset)
+P_on <- P_on[as.logical(rowSums(P_on != 0)), ]
+P_off <- select(df, P.offset)
+P_off <- P_off[as.logical(rowSums(P_off != 0)), ]
+
+
+P_on <- (P_on/1000)
+P_on <- format(round(P_on, 2), nsmall = 2)
+P_on <- as.numeric(P_on)
+
+P_off <- (P_off/1000)
+P_off <- format(round(P_off,2), nsmall = 2)
+P_off <- as.numeric(P_off)
+
+all_P <- cbind(P_off, P_on)
+all_P[is.na(all_P)] <- 0
+all_P <- all_P[as.logical(rowSums(all_P != 0)), ]
+all_P <- all_P[complete.cases(all_P), ]
+
+all_P <- as.data.frame(all_P)
+allO_T <- as.data.frame(allO_T)
+
+```
+
+## Creating list of times for "marked_time" dataframe. 
+```{r}
+
+a <- allO_T[1,2]
+z <- allO_T[(dim(allO_T)[1]),1]
+
+a <- as.numeric(a)
+a <- floor(a)
+
+z <- as.numeric(z)
+z <- ceiling(z)
+
+x <- a:z
+
+marked_time <- data.frame(matrix(0, nrow = length(x), ncol = 3))
+O_Tfinal <- data.frame(matrix(0, nrow = length(x), ncol = 1))
+Pfinal <- data.frame(matrix(0, nrow = length(x), ncol = 1))
+
+names(marked_time) <- c("Time_sec", "O_T", "P_I")
+
+marked_time$Time_sec <- x
+
+```
+
+## Marking O_T column in marked_time dataframe with a 1 if an O_T bout is occuring during that time
+```{r}
+for (i in 1:dim(marked_time)[1]){
+      for (j in 1:dim(allO_T)[1]){
+            if ((marked_time$Time_sec[i] <= allO_T$O_Toff[j]) & (marked_time$Time_sec[i] >= allO_T$O_Ton[j])){
+            O_Tfinal[i,j] = 1
+            }
+            else O_Tfinal[i,j] = 0
+      }
+}
+
+O_Tsum <-apply(O_Tfinal,1,sum)
+marked_time$O_T <- O_Tsum
+total_duration_O_Tsecs <- sum(marked_time$O_T)
+
+```
+
+## Marking P_I column in marked_time dataframe with a 2 if a P_I bout is occuring during that time
+```{r}
+for (i in 1:dim(marked_time)[1]){
+      for (j in 1:dim(all_P)[1]){
+            if ((marked_time$Time_sec[i] <= all_P$P_off [j]) & (marked_time$Time_sec[i] >= all_P$P_on [j])){
+            Pfinal[i,j] = 2
+            }
+            else Pfinal[i,j] = 0
+      }
+}
+
+Pfinalsum <-apply(Pfinal,1,sum)
+marked_time$P_I <- Pfinalsum
+```
+
+## Getting duration for O_T minus P_I
+```{r}
+marked_time <- marked_time[marked_time[,3] < 2,]
+duration_O_TminusPsecs <- sum(marked_time$O_T)
+```
+
+## Combining both durations into one matrix
+```{r}
+both_durations <- cbind(total_duration_O_Tsecs, duration_O_TminusPsecs)
+```
+
+## Write new_O_T_durations to CSV file *CHANGE NAME OF FILE HERE*
+```{r}
+write.csv(both_durations, file = "230433 PROBLEM copy both_durations.csv",row.names=FALSE)
+```
